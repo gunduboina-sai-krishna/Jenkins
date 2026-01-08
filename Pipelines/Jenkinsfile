@@ -44,8 +44,8 @@ pipeline {
         stage('docker-push') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId = 'docker-hub-creds' // configured in jenkins cred store
-                    usernameVariable = 'DOCKER_USER'
+                    credentialsId = 'docker-hub-creds', // configured in jenkins cred store
+                    usernameVariable = 'DOCKER_USER',
                     passwprdVariable = 'DOCKER_PASS'
                 )]) {
                     sh '''
