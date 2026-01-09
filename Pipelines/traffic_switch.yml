@@ -1,0 +1,12 @@
+- hosts: lb
+  become: yes
+  tasks:
+    - name: Switch backend
+      copy:
+        src: green.conf
+        dest: /etc/nginx/conf.d/app.conf
+
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded

@@ -70,11 +70,27 @@ pipeline {
               //  }   
             }
         }
+
+        stage('rollout status') {
+            steps {
+                sh '''
+                kubectl rollout status deployment/${APP_NAME} --timeout=60s
+                '''
+            }
+        }
     }
 
     post {
         failure {
-            echo "pipeline failed"
+            echo "Deployment failed - rolling back"
+            sh '''
+            kubectl rollout undo deployment/${APP_NAME}
+
+            // rollback to specific version
+            kubectl rollout history deployment ${APP_NAME}
+            kubectl rollout undo deployment ${APP_NAME} --to-revision=2
+
+            '''
         }
     }
 }

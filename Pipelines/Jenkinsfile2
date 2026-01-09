@@ -1,0 +1,77 @@
+// jenkins + Docker + Ansible
+
+pipeline {
+  agent any
+
+  environment {
+    IMAGE = "dockerhubuser/my-app"
+    TAG   = "${BUILD_NUMBER}"
+    ANSIBLE_HOST = "ansible.example.com"
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  stages {
+
+    stage('Build & Test') {
+      steps {
+        sh 'mvn clean test package'
+      }
+    }
+
+    stage('Docker Build & Push') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: 'dockerhub-creds',
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
+          sh """
+            docker build -t ${IMAGE}:${TAG} .
+            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+            docker push ${IMAGE}:${TAG}
+          """
+        }
+      }
+    }
+
+    stage('Deploy + Health Check + Switch Traffic') {
+      steps {
+        withCredentials([sshUserPrivateKey(
+          credentialsId: 'ansible-ssh',
+          keyFileVariable: 'SSH_KEY',
+          usernameVariable: 'SSH_USER'
+        )]) {
+          sh """
+            ssh -i $SSH_KEY -o StrictHostKeyChecking=no \
+            $SSH_USER@${ANSIBLE_HOST} << EOF
+              ansible-playbook deploy.yml \
+                --extra-vars "image=${IMAGE}:${TAG} env=green"
+
+              ansible-playbook switch_traffic.yml
+            EOF
+          """
+        }
+      }
+    }
+  }
+
+  post {
+    failure {
+      echo "Deployment failed — rolling back traffic"
+      withCredentials([sshUserPrivateKey(
+        credentialsId: 'ansible-ssh',
+        keyFileVariable: 'SSH_KEY',
+        usernameVariable: 'SSH_USER'
+      )]) {
+        sh """
+          ssh -i $SSH_KEY $SSH_USER@${ANSIBLE_HOST} \
+          'ansible-playbook rollback.yml'
+        """
+      }
+    }
+  }
+}

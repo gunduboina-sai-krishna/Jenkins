@@ -1,0 +1,21 @@
+- hosts: green
+  become: yes
+  tasks:
+
+    - name: Deploy application container
+      docker_container:
+        name: app
+        image: "{{ image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:8080"
+
+    - name: Wait for application to be healthy
+      uri:
+        url: "http://localhost:8080/health"
+        status_code: 200
+      register: result
+      retries: 10
+      delay: 5
+      until: result.status == 200

@@ -1,0 +1,10 @@
+# rollback.yml
+- hosts: lb
+  become: yes
+  tasks:
+    - copy:
+        src: blue.conf
+        dest: /etc/nginx/conf.d/app.conf
+    - service:
+        name: nginx
+        state: reloaded
